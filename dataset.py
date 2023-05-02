@@ -18,7 +18,7 @@ import editdistance
 class MyDataset(Dataset):
     letters = [' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
 
-    def __init__(self, video_path, anno_path, file_list, vid_pad, txt_pad, phase):
+    def __init__(self, video_path, anno_path, file_list, vid_pad, txt_pad, phase, percentage=1.0):
         self.anno_path = anno_path
         self.vid_pad = vid_pad
         self.txt_pad = txt_pad
@@ -26,7 +26,7 @@ class MyDataset(Dataset):
         
         with open(file_list, 'r') as f:
             self.videos = [os.path.join(video_path, line.strip()) for line in f.readlines()]
-            
+
         self.data = []
         for vid in self.videos:
             items = vid.split(os.path.sep)            
@@ -35,8 +35,8 @@ class MyDataset(Dataset):
                 
     def __getitem__(self, idx):
         (vid, spk, name) = self.data[idx]
-        vid = self._load_vid(vid)
-        anno = self._load_anno(os.path.join(self.anno_path, spk, 'align', name + '.align'))
+        vid = self._load_vid(vid) # (T, H, W, C) = (VID_LEN, 64, 128, 3)
+        anno = self._load_anno(os.path.join(self.anno_path, spk, 'align', name + '.align')) # (ANNO_LEN,)
 
         if(self.phase == 'train'):
             vid = HorizontalFlip(vid)
@@ -48,7 +48,7 @@ class MyDataset(Dataset):
         vid = self._padding(vid, self.vid_pad)
         anno = self._padding(anno, self.txt_pad)
         
-        return {'vid': torch.FloatTensor(vid.transpose(3, 0, 1, 2)), 
+        return {'vid': torch.FloatTensor(vid.transpose(3, 0, 1, 2)), # (C, T, H, W)
             'txt': torch.LongTensor(anno),
             'txt_len': anno_len,
             'vid_len': vid_len}
@@ -64,7 +64,7 @@ class MyDataset(Dataset):
         array = list(filter(lambda im: not im is None, array))
         array = [cv2.resize(im, (128, 64), interpolation=cv2.INTER_LANCZOS4) for im in array]
         array = np.stack(array, axis=0).astype(np.float32)
-        return array
+        return array # (T, H, W, C)
     
     def _load_anno(self, name):
         with open(name, 'r') as f:
@@ -82,6 +82,10 @@ class MyDataset(Dataset):
     
     @staticmethod
     def txt2arr(txt, start):
+        """
+        Converts an array of characters into an array of indices mapping to the vocabulary of letters.
+        The space is mapped to 1, not zero (and subsequent letters are also INDEX + 1)
+        """
         arr = []
         for c in list(txt):
             arr.append(MyDataset.letters.index(c) + start)
@@ -89,6 +93,9 @@ class MyDataset(Dataset):
         
     @staticmethod
     def arr2txt(arr, start):
+        """
+        Converts an array of integers into an array of characters
+        """
         txt = []
         for n in arr:
             if(n >= start):
@@ -97,6 +104,9 @@ class MyDataset(Dataset):
     
     @staticmethod
     def ctc_arr2txt(arr, start):
+        """
+        Converts an array of integers mapping to characters into a string, by ignoring duplicates
+        """
         pre = -1
         txt = []
         for n in arr:

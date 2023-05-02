@@ -13,7 +13,7 @@ from model import LipNet
 import torch.optim as optim
 import re
 import json
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
 if(__name__ == '__main__'):
@@ -35,6 +35,11 @@ def show_lr(optimizer):
     return np.array(lr).mean()  
 
 def ctc_decode(y):
+    """
+    Takes an input tensor of shape (BATCH, SEQUENCE_LENGTH, NUM_CLASSES)
+    Then performs an "argmax" on the last dimension to select the class with highest probability
+    Then, for each item in the batch (y.size(0)), it gets the text 
+    """
     result = []
     y = y.argmax(-1)
     return [MyDataset.ctc_arr2txt(y[_], start=1) for _ in range(y.size(0))]
@@ -134,7 +139,8 @@ def train(model, net):
                 eta = (len(loader)-i_iter)*v/3600.0
                 
                 writer.add_scalar('train loss', loss, tot_iter)
-                writer.add_scalar('train wer', np.array(train_wer).mean(), tot_iter)              
+                writer.add_scalar('train wer', np.array(train_wer).mean(), tot_iter)     
+                writer.flush()         
                 print(''.join(101*'-'))                
                 print('{:<50}|{:>50}'.format('predict', 'truth'))                
                 print(''.join(101*'-'))
@@ -152,6 +158,7 @@ def train(model, net):
                 writer.add_scalar('val loss', loss, tot_iter)                    
                 writer.add_scalar('wer', wer, tot_iter)
                 writer.add_scalar('cer', cer, tot_iter)
+                writer.flush()
                 savename = '{}_loss_{}_wer_{}_cer_{}.pt'.format(opt.save_prefix, loss, wer, cer)
                 (path, name) = os.path.split(savename)
                 if(not os.path.exists(path)): os.makedirs(path)
