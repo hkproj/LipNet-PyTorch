@@ -4,3 +4,5 @@ weights
 __pycache__
 GRID_align_txt
 lip
+italip_*
+GRID_LIP_*
