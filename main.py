@@ -81,14 +81,14 @@ def test(model, net):
                 v = 1.0*(time.time()-tic)/(i_iter+1)
                 eta = v * (len(loader)-i_iter) / 3600.0
                 
-                print(''.join(101*'-'))                
-                print('{:<50}|{:>50}'.format('predict', 'truth'))
-                print(''.join(101*'-'))                
+                print(''.join(161*'-'))                
+                print('{:<80}|{:>80}'.format('predict', 'truth'))
+                print(''.join(161*'-'))                
                 for (predict, truth) in list(zip(pred_txt, truth_txt))[:10]:
-                    print('{:<50}|{:>50}'.format(predict, truth))                
-                print(''.join(101 *'-'))
+                    print('{:<80}|{:>80}'.format(predict, truth))                
+                print(''.join(161 *'-'))
                 print('test_iter={},eta={},wer={},cer={}'.format(i_iter,eta,np.array(wer).mean(),np.array(cer).mean()))                
-                print(''.join(101 *'-'))
+                print(''.join(161 *'-'))
                 
         return (np.array(loss_list).mean(), np.array(wer).mean(), np.array(cer).mean())
     
@@ -134,24 +134,24 @@ def train(model, net):
             truth_txt = [MyDataset.arr2txt(txt[_], start=1) for _ in range(txt.size(0))]
             train_wer.extend(MyDataset.wer(pred_txt, truth_txt))
             
-            if(tot_iter % opt.display == 0):
+            if(tot_iter > 0 and tot_iter % opt.display == 0):
                 v = 1.0*(time.time()-tic)/(tot_iter+1)
                 eta = (len(loader)-i_iter)*v/3600.0
                 
                 writer.add_scalar('train loss', loss, tot_iter)
                 writer.add_scalar('train wer', np.array(train_wer).mean(), tot_iter)     
                 writer.flush()         
-                print(''.join(101*'-'))                
-                print('{:<50}|{:>50}'.format('predict', 'truth'))                
-                print(''.join(101*'-'))
+                print(''.join(161*'-'))                
+                print('{:<80}|{:>80}'.format('predict', 'truth'))                
+                print(''.join(161*'-'))
                 
                 for (predict, truth) in list(zip(pred_txt, truth_txt))[:3]:
-                    print('{:<50}|{:>50}'.format(predict, truth))
-                print(''.join(101*'-'))                
+                    print('{:<80}|{:>80}'.format(predict, truth))
+                print(''.join(161*'-'))                
                 print('epoch={},tot_iter={},eta={},loss={},train_wer={}'.format(epoch, tot_iter, eta, loss, np.array(train_wer).mean()))
-                print(''.join(101*'-'))
+                print(''.join(161*'-'))
                 
-            if(tot_iter % opt.test_step == 0):                
+            if(tot_iter > 0 and tot_iter % opt.test_step == 0):                
                 (loss, wer, cer) = test(model, net)
                 print('i_iter={},lr={},loss={},wer={},cer={}'
                     .format(tot_iter,show_lr(optimizer),loss,wer,cer))
@@ -168,6 +168,41 @@ def train(model, net):
                 
 if(__name__ == '__main__'):
     print("Loading options...")
+
+    useVocab = len(sys.argv) > 1 and sys.argv[1] == 'vocab'
+
+    if useVocab:
+        print(f'Training ItaLIP')
+        opt.train_list = ''
+        opt.val_list = ''
+        opt.data_type = 'unseen'
+        opt.video_path = 'italip_lip/'
+        opt.train_list = f'italip_data/{opt.data_type}_train.txt'
+        opt.val_list = f'italip_data/{opt.data_type}_val.txt'
+        opt.anno_path = 'italip_GRID_align_txt'
+        opt.vocab_file = f'italip_data/vocabulary.txt'
+
+
+    if useVocab and opt.vocab_file is not None:
+        # Load the vocabulary and update the letters 
+        with open(opt.vocab_file, 'r') as f:
+            # Read all the non-whitespace lines
+            chars = set([line.strip() for line in f.read().splitlines() if line.strip() != ''])
+            # Make sure the space character is present
+            chars.add(' ')
+            if '\n' in chars:
+                chars.remove('\n')
+            if '\r' in chars:
+                chars.remove('\r')
+            
+            # Verify that all chars are strings of length 1
+            for c in chars:
+                assert len(c) == 1, 'Invalid character in vocabulary: \'{}\''.format(c)
+
+            # Sort all the characters
+            chars = sorted(list(chars))
+            MyDataset.letters = chars
+
     model = LipNet()
     model = model.cuda()
     net = nn.DataParallel(model).cuda()
