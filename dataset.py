@@ -14,8 +14,18 @@ import json
 import random
 import editdistance
 
+def normalize_images(images):
+    # Compute mean and standard deviation per channel
+    mean = np.mean(images, axis=(0, 1, 2))
+    std = np.std(images, axis=(0, 1, 2))
     
+    # Normalize images per channel
+    normalized_images = (images - mean) / std
+    
+    return normalized_images
+
 class MyDataset(Dataset):
+    normalize = True
     letters = [' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
 
     def __init__(self, video_path, anno_path, file_list, vid_pad, txt_pad, phase, percentage=1.0):
@@ -36,6 +46,8 @@ class MyDataset(Dataset):
     def __getitem__(self, idx):
         (vid, spk, name) = self.data[idx]
         vid = self._load_vid(vid) # (T, H, W, C) = (VID_LEN, 64, 128, 3)
+        if MyDataset.normalize:
+            vid = normalize_images(vid)
         anno = self._load_anno(os.path.join(self.anno_path, spk, 'align', name + '.align')) # (ANNO_LEN,)
 
         if(self.phase == 'train'):
