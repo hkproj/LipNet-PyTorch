@@ -67,7 +67,8 @@ def test(model, net):
             txt = input.get('txt').cuda()
             vid_len = input.get('vid_len').cuda()
             txt_len = input.get('txt_len').cuda()
-            
+            vid_spk = input.get('vid_spk')
+            vid_name = input.get('vid_name')
             y = net(vid)
             
             loss = crit(y.transpose(0, 1).log_softmax(-1), txt, vid_len.view(-1), txt_len.view(-1)).detach().cpu().numpy()
@@ -108,7 +109,7 @@ def train(model, net):
                 amsgrad = True)
                 
     print('num_train_data:{}'.format(len(dataset.data)))    
-    crit = nn.CTCLoss()
+    crit = nn.CTCLoss(zero_infinity=True)
     tic = time.time()
     
     train_wer = []
@@ -119,6 +120,8 @@ def train(model, net):
             txt = input.get('txt').cuda()
             vid_len = input.get('vid_len').cuda()
             txt_len = input.get('txt_len').cuda()
+            vid_spk = input.get('vid_spk')
+            vid_name = input.get('vid_name')
             
             optimizer.zero_grad()
             y = net(vid)
@@ -169,10 +172,11 @@ def train(model, net):
 if(__name__ == '__main__'):
     print("Loading options...")
 
-    useVocab = len(sys.argv) > 1 and sys.argv[1] == 'vocab'
+    isItaLIP = len(sys.argv) > 1 and sys.argv[1] == 'italip'
 
-    if useVocab:
+    if isItaLIP:
         print(f'Training ItaLIP')
+        MyDataset.normalize = False
         opt.train_list = ''
         opt.val_list = ''
         opt.data_type = 'unseen'
@@ -181,9 +185,12 @@ if(__name__ == '__main__'):
         opt.val_list = f'italip_data/{opt.data_type}_val.txt'
         opt.anno_path = 'italip_GRID_align_txt'
         opt.vocab_file = f'italip_data/vocabulary.txt'
+    else:
+        MyDataset.normalize = False
+    print(f'Normalizing images: {MyDataset.normalize}')
 
-
-    if useVocab and opt.vocab_file is not None:
+    if isItaLIP:
+        assert opt.vocab_file is not None, 'Vocabulary file must be specified for ItaLIP'
         # Load the vocabulary and update the letters 
         with open(opt.vocab_file, 'r') as f:
             # Read all the non-whitespace lines
@@ -202,8 +209,9 @@ if(__name__ == '__main__'):
             # Sort all the characters
             chars = sorted(list(chars))
             MyDataset.letters = chars
+    print(f'Loaded vocabulary with {len(MyDataset.letters)} characters')
 
-    model = LipNet()
+    model = LipNet(vocab_size=len(MyDataset.letters))
     model = model.cuda()
     net = nn.DataParallel(model).cuda()
 

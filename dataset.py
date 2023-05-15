@@ -60,10 +60,14 @@ class MyDataset(Dataset):
         vid = self._padding(vid, self.vid_pad)
         anno = self._padding(anno, self.txt_pad)
         
-        return {'vid': torch.FloatTensor(vid.transpose(3, 0, 1, 2)), # (C, T, H, W)
+        return {
+            'vid': torch.FloatTensor(vid.transpose(3, 0, 1, 2)), # (C, T, H, W)
             'txt': torch.LongTensor(anno),
             'txt_len': anno_len,
-            'vid_len': vid_len}
+            'vid_len': vid_len,
+            'vid_spk': spk[:],
+            'vid_name': name[:],
+        }
             
     def __len__(self):
         return len(self.data)
