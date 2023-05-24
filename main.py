@@ -109,7 +109,8 @@ def train(model, net):
                 amsgrad = True)
                 
     print('num_train_data:{}'.format(len(dataset.data)))    
-    crit = nn.CTCLoss(zero_infinity=True)
+    zero_infinity = opt.zero_infinity_loss if opt.italip else False
+    crit = nn.CTCLoss(zero_infinity=zero_infinity)
     tic = time.time()
     
     train_wer = []
@@ -127,6 +128,9 @@ def train(model, net):
             y = net(vid)
             loss = crit(y.transpose(0, 1).log_softmax(-1), txt, vid_len.view(-1), txt_len.view(-1))
             loss.backward()
+            if opt.italip and opt.clip is not None:
+                # Perform gradient clipping
+                torch.nn.utils.clip_grad.clip_grad_norm_(model.parameters(), opt.clip)
             if(opt.is_optimize):
                 optimizer.step()
             
@@ -172,9 +176,9 @@ def train(model, net):
 if(__name__ == '__main__'):
     print("Loading options...")
 
-    isItaLIP = len(sys.argv) > 1 and sys.argv[1] == 'italip'
+    opt.italip = len(sys.argv) > 1 and sys.argv[1] == 'italip'
 
-    if isItaLIP:
+    if opt.italip:
         print(f'Training ItaLIP')
         MyDataset.normalize = False
         opt.train_list = ''
@@ -189,7 +193,7 @@ if(__name__ == '__main__'):
         MyDataset.normalize = False
     print(f'Normalizing images: {MyDataset.normalize}')
 
-    if isItaLIP:
+    if opt.italip:
         assert opt.vocab_file is not None, 'Vocabulary file must be specified for ItaLIP'
         # Load the vocabulary and update the letters 
         with open(opt.vocab_file, 'r') as f:
