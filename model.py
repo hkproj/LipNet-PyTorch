@@ -58,24 +58,24 @@ class LipNet(torch.nn.Module):
         
     def forward(self, x):
         
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.dropout3d(x)
-        x = self.pool1(x)
+        x = self.conv1(x) # (B, C, T, H, W) --> (B, 32, T, 32, 64)
+        x = self.relu(x) 
+        x = self.dropout3d(x) 
+        x = self.pool1(x) # (B, 32, T, 32, 64) --> (B, 32, T, 16, 32)
         
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.dropout3d(x)        
-        x = self.pool2(x)
-        
-        x = self.conv3(x)
+        x = self.conv2(x) # (B, 32, T, 16, 32) --> (B, 64, T, 16, 32)
         x = self.relu(x)
         x = self.dropout3d(x)        
-        x = self.pool3(x)
+        x = self.pool2(x) # (B, 64, T, 16, 32) --> (B, 64, T, 8, 16)
         
-        # (B, C, T, H, W)->(T, B, C, H, W)
+        x = self.conv3(x) # (B, 64, T, 8, 16) --> (B, 96, T, 8, 16)
+        x = self.relu(x)
+        x = self.dropout3d(x)        
+        x = self.pool3(x) # (B, 96, T, 8, 16) --> (B, 96, T, 4, 8)
+        
+        # (B, C, T, H, W) --> (T, B, C, H, W)
         x = x.permute(2, 0, 1, 3, 4).contiguous()
-        # (B, C, T, H, W)->(T, B, C*H*W)
+        # (B, C, T, H, W) --> (T, B, C*H*W)
         x = x.view(x.size(0), x.size(1), -1)
         
         self.gru1.flatten_parameters()
